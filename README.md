@@ -4,9 +4,9 @@
 
 SmartFinance is an AI-powered financial platform developed for the you.com hackathon 2025 that addresses the challenge of making informed investment decisions in volatile cryptocurrency markets. The platform combines deep research capabilities with automated trading to provide data-driven investment analysis and execution.
 
-Built as part of the "Enterprise-Grade Solutions" track, SmartFinance leverages a modern tech stack including Next.js for the frontend, Python with FastAPI for the backend API server, PostgreSQL for data persistence, and Docker for containerization. The system integrates multiple data sources including you.com APIs (Search, Contents, Live News, Express Agent), CoinGecko for cryptocurrency data, and Yahoo Finance for traditional assets.
+Built as part of the "Enterprise-Grade Solutions" track, SmartFinance leverages a modern tech stack including Next.js for the frontend, Python with FastAPI for the backend API server, Prisma ORM for database management with PostgreSQL for data persistence, and Docker for containerization. The system integrates multiple data sources including you.com APIs (Search, Contents, Live News, Express Agent), CoinGecko for cryptocurrency data, and Yahoo Finance for traditional assets.
 
-The platform's impact lies in providing sophisticated investment analysis tools that enable users to make informed decisions through AI-powered research and automated trading strategies. Key endpoints include deep research functionality powered by you.com's Express Agent for grounding LLM responses with web search, asset symbol resolution, and comparative analysis of different investment options through an asset analyzer that plots multiple charts side by side and deep research report generation.
+The platform's impact lies in providing sophisticated investment analysis tools that enable users to make informed decisions through AI-powered research and automated trading strategies. You.com endpoints used includes Express Agent API for roboadvisor and stocks asset symbol resolution, Live News API for financial news page, Search and Contents API for deep research.
 
 ## Credits
 
