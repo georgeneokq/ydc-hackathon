@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  active          Boolean   @default(false)
+  sellToken       String    @map("sell_token")
+  buyToken        String    @map("buy_token")
+  sellAmount      String    @map("sell_amount")
+  tradeFrequency  String    @default("daily") @map("trade_frequency")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt      
+
+  transactions  Transaction[]
+
+  @@map("users")
+}
+
+model Transaction {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  sellToken       String    @map("sell_token")
+  buyToken        String    @map("buy_token")
+  sellAmount      String    @map("sell_amount") // Using String to avoid precision issues with decimals
+  buyAmount       String    @map("buy_amount") // Using String to avoid precision issues with decimals
+  reasoning       String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt  @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("transactions")
+}

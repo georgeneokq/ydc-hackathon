@@ -1,0 +1,8 @@
+packages:
+  - 'autotrade-cron'
+  - 'web'
+  - 'prisma'
+# catalogs:
+#   prisma:
+    # prisma: latest
+    # '@prisma/client': latest

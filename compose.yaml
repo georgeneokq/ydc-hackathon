@@ -1,0 +1,79 @@
+services:
+  tongyi-api-server:
+    image: tongyi-api-server:latest
+    container_name: tongyi-api-server
+    pull_policy: never
+    build:
+      context: ./tongyi-deepresearch
+      dockerfile: dev.Dockerfile
+    env_file:
+      - tongyi-deepresearch/.env
+    volumes:
+      - "./tongyi-deepresearch/inference:/app/inference"
+
+      # Persist db
+      - agent_db:/tmp/agent_db
+    restart: on-failure:3
+
+  web:
+    image: web:latest
+    pull_policy: never
+    container_name: web
+    build:
+      context: .
+      dockerfile: web/dev.Dockerfile
+    env_file:
+      - web/.env
+    volumes:
+      # Hot reload
+      - "./web/src:/app/web/src"
+      - "./web/public:/app/web/public"
+      - "./web/next.config.ts:/app/web/next.config.ts"
+      - "./web/tsconfig.json:/app/web/tsconfig.json"
+    ports:
+      - "3000:3000"
+    restart: on-failure:3
+
+  autotrade-cron:
+    image: autotrade-cron:latest
+    pull_policy: never
+    container_name: autotrade-cron
+    build:
+      context: .
+      dockerfile: autotrade-cron/dev.Dockerfile
+    volumes:
+      - "./autotrade-cron/src:/app/autotrade-cron/src"
+      - "./autotrade-cron/tsconfig.json:/app/autotrade-cron/tsconfig.json"
+    env_file:
+      - autotrade-cron/.env
+  
+  postgres:
+    image: postgres:18-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql
+    restart: on-failure:3
+
+volumes:
+  agent_db:
+  pgdata:
+
+
+# Unused services
+  # hardhat-node:
+  #   image: hardhat-node:latest
+  #   container_name: hardhat-node
+  #   pull_policy: never
+  #   build:
+  #     context: ./hardhat
+  #     dockerfile: Dockerfile
+  #   volumes:
+  #     - "./hardhat/hardhat.config.ts:/app/hardhat.config.ts"
+  #   env_file:
+  #     - hardhat/.env
+  #   ports:
+  #     - "8545:8545"

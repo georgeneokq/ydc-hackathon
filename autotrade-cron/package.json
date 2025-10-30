@@ -1,0 +1,40 @@
+{
+  "name": "crypto_trading",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
+    "build": "tsc src --out-dir build",
+    "start": "tsx src/index.ts",
+    "type-check": "tsc --pretty --noEmit --project tsconfig.json",
+    "type-check-ci": "cd .. && tsc --noEmit --project crypto_trading/tsconfig.json",
+    "format": "prettier --ignore-path ../.gitignore --write . && pnpm lint --fix",
+    "lint": "eslint --ignore-path ../.gitignore . --ext ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.7.3",
+    "@typescript-eslint/parser": "^6.7.3",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-airbnb-typescript": "^17.1.0",
+    "eslint-config-prettier": "^9.1.0",
+    "nodemon": "^3.1.4",
+    "prettier": "^3.3.3",
+    "prisma": "^6.18.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.3",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.18.0",
+    "@types/node": "^24.9.1",
+    "alchemy-sdk": "^3.6.5",
+    "cron": "^4.1.4",
+    "ethers": "^6.15.0",
+    "openai": "^6.6.0",
+    "undici": "^7.16.0"
+  },
+  "packageManager": "pnpm@10.14.0"
+}
