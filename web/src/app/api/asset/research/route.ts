@@ -1,5 +1,6 @@
 import { Agent } from 'undici';
 import { NextRequest } from 'next/server';
+import { createSimpleCompletion } from '@/lib/llm/openai';
 
 const footer = `
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     // Use LLM to process the asset description and convert to proper format
     const processedAssetDescriptions = await processAssetDescription(assetDescriptions);
     const numAssets = processedAssetDescriptions.split(',').length
-    
+
     // Deep research with 2 hour timeout
     console.log(`Waiting for deep research response for up to 2 hours...`)
     const agent = new Agent({
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     }
     console.log(question)
     const response = await fetch(deepResearchEndpoint, {
-      // @ts-ignore
+      // @ts-expect-error - dispatcher type mismatch in undici Agent
       dispatcher: agent,
       method: "POST",
       headers: {
@@ -68,44 +69,45 @@ export async function GET(request: NextRequest) {
 
 // Function to process asset description using LLM
 async function processAssetDescription(description: string): Promise<string> {
-  const instructions = `Convert the given asset descriptions into their widely recognized canonical market names.
-  Do not return ticker symbols. Do not include parentheses. Do not add extra commentary.
+  const systemPrompt = `You are a financial data normalization assistant. Convert asset descriptions into their widely recognized canonical market names.
 
-  If the input already resembles the correct name, normalize formatting (proper capitalization, remove unnecessary words).
-  If the input refers to a major index, convert to its standard full name.
-  If unsure, return the input in a simplified and clean form.
+Rules:
+- Do not return ticker symbols
+- Do not include parentheses
+- Do not add extra commentary
+- If the input already resembles the correct name, normalize formatting (proper capitalization, remove unnecessary words)
+- If the input refers to a major index, convert to its standard full name
+- If unsure, return the input in a simplified and clean form
 
-  Examples:
-  - Input: "S&P" → Output: "S&P 500"
-  - Input: "spx" → Output: "S&P 500"
-  - Input: "nasdaq" → Output: "Nasdaq Composite"
-  - Input: "dow jones" → Output: "Dow Jones Industrial Average"
-  - Input: "^GSPC, nasdaq" → Output: "S&P 500, Nasdaq Composite"
-  - Input: "AAPL" → Output: "Apple"
-  - Input: "apple stock" → Output: "Apple"
-  - Input: "Gold" → Output: "Gold"
-  - Input: "BTC" → Output: "Bitcoin"
+Examples:
+- Input: "S&P" → Output: "S&P 500"
+- Input: "spx" → Output: "S&P 500"
+- Input: "nasdaq" → Output: "Nasdaq Composite"
+- Input: "dow jones" → Output: "Dow Jones Industrial Average"
+- Input: "^GSPC, nasdaq" → Output: "S&P 500, Nasdaq Composite"
+- Input: "AAPL" → Output: "Apple"
+- Input: "apple stock" → Output: "Apple"
+- Input: "Gold" → Output: "Gold"
+- Input: "BTC" → Output: "Bitcoin"
 
-  Respond with only the final names, comma-delimited, nothing else.
+Respond with ONLY the final names, comma-delimited, nothing else.`;
 
-  Asset description: ${description}`;
+  const response = await createSimpleCompletion(
+    [
+      {
+        role: 'user',
+        content: `Normalize: ${description}`,
+      },
+    ],
+    undefined,
+    {
+      systemPrompt,
+      maxTokens: 100,
+      temperature: 0,
+    }
+  );
 
-  const response = await fetch("https://api.you.com/v1/agents/runs", {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.YDC_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      agent: "express",
-      input: instructions,
-    })
-  })
-
-  const data = await response.json()
-  const processed = data["output"]?.[0]?.text
-
-  return processed || description; // Fallback to original if LLM fails
+  return response.trim() || description; // Fallback to original if LLM fails
 }
 
 const mockResearchContent = `# Gold Market Analysis

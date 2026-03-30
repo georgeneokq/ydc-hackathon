@@ -1,5 +1,6 @@
 import Coingecko from '@coingecko/coingecko-typescript';
 import { NextRequest } from 'next/server';
+import { createSimpleCompletion } from '@/lib/llm/openai';
 
 interface ChartData {
   name: string;
@@ -26,9 +27,9 @@ export async function GET(request: NextRequest) {
   try {
     // Use LLM to determine asset type
     const assetType = await classifyAssetType(assetDescription);
-    
+
     let chartData: ChartData;
-    
+
     switch (assetType) {
       case 'COMMODITY':
         chartData = await fetchCommodityData(assetDescription);
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-    
+
     return Response.json(chartData);
   } catch (error) {
     console.error('Error fetching charts data:', error);
@@ -58,82 +59,81 @@ export async function GET(request: NextRequest) {
 
 // Function to classify asset type using LLM
 async function classifyAssetType(assetId: string): Promise<'COMMODITY' | 'STOCK' | 'CRYPTOCURRENCY' | 'UNKNOWN'> {
-  const instructions = `Analyze the given asset description and categorize it as one of the following:
-  - COMMODITY: if the asset description refers to other commodities (oil, gas, agricultural, etc.)
-  - STOCK: if the asset description refers to a company stock or index
-  - CRYPTOCURRENCY: if the asset description refers to a cryptocurrency (e.g., Bitcoin, Ethereum, etc.)
-  - UNKNOWN: if the asset description does not fit any of the above categories (erroneous input)
+  const systemPrompt = `You are a classification assistant for financial assets. Your task is to categorize asset descriptions into one of four categories.
 
-  If the input refers to a stock *index* (e.g., "S&P", "Dow Jones", "Nasdaq", etc), classify it as STOCK and convert to the most widely used ETF that tracks that index.
+Rules:
+- COMMODITY: if the asset description refers to commodities (oil, gas, agricultural products, precious metals, etc.)
+- STOCK: if the asset description refers to a company stock or stock market index
+- CRYPTOCURRENCY: if the asset description refers to a cryptocurrency (e.g., Bitcoin, Ethereum, etc.)
+- UNKNOWN: if the asset description does not fit any of the above categories
 
-  Respond with only the category name (COMMODITY, STOCK, CRYPTOCURRENCY, or UNKNOWN) in plain text without any explanation.
-  
-  Asset description: ${assetId}`;
+For stock indices (e.g., "S&P", "Dow Jones", "Nasdaq"), classify as STOCK.
 
-  const response = await fetch("https://api.you.com/v1/agents/runs", {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.YDC_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      agent: "express",
-      input: instructions,
-    })
-  })
+Respond with ONLY the category name in plain text without any explanation.`;
 
-  const data = await response.json()
-  const assetType = data["output"]?.[0]?.text
+  const response = await createSimpleCompletion(
+    [
+      {
+        role: 'user',
+        content: `Classify this asset: ${assetId}`,
+      },
+    ],
+    undefined,
+    {
+      systemPrompt,
+      maxTokens: 50,
+      temperature: 0,
+    }
+  );
+
+  const assetType = response.trim().toUpperCase();
 
   // Validate the response and return appropriate type
   if (assetType === 'COMMODITY') return 'COMMODITY';
   if (assetType === 'STOCK') return 'STOCK';
   if (assetType === 'CRYPTOCURRENCY') return 'CRYPTOCURRENCY';
-  
+
   // Default to UNKNOWN if classification is uncertain
   return 'UNKNOWN';
 }
 
 // Function to convert asset description to ticker using LLM
 async function convertDescriptionToTicker(description: string): Promise<string> {
-  const instructions = `
-  Convert the given asset description into the correct price chart ticker.
+  const systemPrompt = `You are a financial ticker lookup assistant. Convert asset descriptions to their correct Yahoo Finance ticker symbols.
 
-  Rules:
-  - If the input is already a valid ticker symbol, return it unchanged.
-  - If the input refers to a company's name, return that company's primary stock ticker.
-  - If the input refers to a stock market *index*, return the canonical *index ticker* (not the ETF):
-      - "S&P", "S&P 500", "SP500", "Standard and Poor's" → "^GSPC"
-      - "Nasdaq", "Nasdaq 100" → "^NDX"
-      - "Dow Jones", "DJI", "Dow" → "^DJI"
-  - If the input refers to a commodity (e.g., gold, oil, wheat), return "UNKNOWN".
-  - If the asset cannot be confidently identified, return "UNKNOWN".
+Rules:
+- If the input is already a valid ticker symbol, return it unchanged.
+- If the input refers to a company's name, return that company's primary stock ticker.
+- If the input refers to a stock market *index*, return the canonical *index ticker*:
+    - "S&P", "S&P 500", "SP500", "Standard and Poor's" → "^GSPC"
+    - "Nasdaq", "Nasdaq 100" → "^NDX"
+    - "Dow Jones", "DJI", "Dow" → "^DJI"
+- If the input refers to a commodity (e.g., gold, oil, wheat), return "UNKNOWN".
+- If the asset cannot be confidently identified, return "UNKNOWN".
 
-  Respond with only the ticker symbol or "UNKNOWN". No explanation.
+Respond with ONLY the ticker symbol or "UNKNOWN". No explanation.`;
 
-  Asset description: ${description}
-  `;
+  const response = await createSimpleCompletion(
+    [
+      {
+        role: 'user',
+        content: `Convert to ticker: ${description}`,
+      },
+    ],
+    undefined,
+    {
+      systemPrompt,
+      maxTokens: 20,
+      temperature: 0,
+    }
+  );
 
+  const ticker = response.trim();
 
-  const response = await fetch("https://api.you.com/v1/agents/runs", {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.YDC_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      agent: "express",
-      input: instructions,
-    })
-  })
-
-  const data = await response.json()
-  const ticker = data["output"]?.[0]?.text
-  
   if (!ticker || ticker === 'UNKNOWN') {
     throw new Error('Unable to identify stock ticker from description');
   }
-  
+
   return ticker;
 }
 
@@ -200,40 +200,36 @@ async function fetchStockData(assetDescription: string): Promise<ChartData> {
 
 // Function to match asset description to a cryptocurrency market ID using LLM
 async function matchCryptoToMarketId(assetDescription: string, marketIds: string[]): Promise<string> {
-  const instructions = `
-  Given the following asset description and list of available cryptocurrency market IDs, 
-  find the best match for the asset description and return only the matching market ID.
-  
-  Asset description: ${assetDescription}
-  
-  Available market IDs: ${marketIds.join(', ')}
-  
-  Rules:
-  - Return only the matching market ID from the list
-  - If the asset description is "Bitcoin" or "BTC", match to "bitcoin"
-  - If the asset description is "Ethereum" or "ETH", match to "ethereum"
-  - If the asset description is "Dogecoin" or "DOGE", match to "dogecoin"
-  - If no clear match exists, return "NOT_FOUND"
-  
-  Response format: Only return the matching market ID or "NOT_FOUND", no other text.
-  `;
+  const systemPrompt = `You are a cryptocurrency lookup assistant. Match asset descriptions to CoinGecko market IDs.
 
-  const response = await fetch("https://api.you.com/v1/agents/runs", {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.YDC_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      agent: "express",
-      input: instructions,
-    })
-  })
+Rules:
+- Return only the matching market ID from the provided list
+- Common mappings:
+  - "Bitcoin" or "BTC" → "bitcoin"
+  - "Ethereum" or "ETH" → "ethereum"
+  - "Dogecoin" or "DOGE" → "dogecoin"
+- If no clear match exists, return "NOT_FOUND"
 
-  const data = await response.json();
-  const matchedId = data["output"]?.[0]?.text?.trim();
+Respond with ONLY the market ID or "NOT_FOUND". No other text.`;
 
-  if (!matchedId || matchedId === 'NOT_FOUND') {
+  const response = await createSimpleCompletion(
+    [
+      {
+        role: 'user',
+        content: `Match this asset to a market ID:\nAsset: ${assetDescription}\n\nAvailable market IDs: ${marketIds.join(', ')}`,
+      },
+    ],
+    undefined,
+    {
+      systemPrompt,
+      maxTokens: 30,
+      temperature: 0,
+    }
+  );
+
+  const matchedId = response.trim().toLowerCase();
+
+  if (!matchedId || matchedId === 'not_found') {
     throw new Error(`No matching cryptocurrency found for: ${assetDescription}`);
   }
 
