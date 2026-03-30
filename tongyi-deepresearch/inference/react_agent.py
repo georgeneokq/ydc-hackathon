@@ -21,7 +21,7 @@ from tool_file import *
 from tool_scholar import *
 from tool_python import *
 # from tool_search_ydc import *
-from tool_search_google import *
+from tool_search import *
 from tool_visit import *
 
 OBS_START = '<tool_response>'

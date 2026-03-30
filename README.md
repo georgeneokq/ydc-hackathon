@@ -66,8 +66,6 @@ cp web/.env.example web/.env
 
 You need to provide API keys for the following services:
 
-- **YDC_API_KEY**: Your You.com API key for web search functionality. Get it at [you.com](https://you.com)
-
 - **OPENAI_API_KEY**: API key for LLM operations (can be from any platform supporting OpenAI compatible LLM calls, such as OpenAI, OpenRouter, Anthropic, etc.)
 
 - **OPENAI_API_BASE**: Base URL for the LLM provider's API (e.g., https://api.openai.com/v1 for OpenAI, https://openrouter.ai/api/v1 for OpenRouter, etc.)
@@ -88,8 +86,6 @@ cp tongyi-deepresearch/.env.example tongyi-deepresearch/.env
 ```
 
 This service requires several API keys and configuration values:
-
-- **YDC_API_KEY**: Your You.com API key for web search and content functionality (replaces Serper and Jina.ai as the search and page reader providers for this hackathon). Get it at [you.com](https://you.com)
 
 - **API_KEY**: API key for content summarization (can be from any platform supporting OpenAI compatible LLM calls, such as OpenAI, OpenRouter, Anthropic, etc.)
 

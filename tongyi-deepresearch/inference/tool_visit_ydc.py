@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import signal
@@ -18,6 +19,24 @@ VISIT_SERVER_TIMEOUT = int(os.getenv("VISIT_SERVER_TIMEOUT", 200))
 WEBCONTENT_MAXLENGTH = int(os.getenv("WEBCONTENT_MAXLENGTH", 150000))
 
 JINA_API_KEYS = os.getenv("JINA_API_KEYS", "")
+
+# Filter out blacklisted urls, such as reuters.com which will not return content upon visiting
+# Blacklist of domains (only base domains, no need for protocol)
+VISIT_BLACKLIST = [
+    "reuters.com",
+]
+
+def is_blacklisted(url):
+    # Extract the actual target URL if it's a jina.ai redirect
+    if url.startswith("https://r.jina.ai/"):
+        url = url[len("https://r.jina.ai/"):]  # remove proxy prefix
+
+    # Parse domain from URL
+    parsed = urlparse(url)
+    domain = parsed.netloc.lower()
+
+    # Check if any blacklisted domain is a substring (covers subdomains)
+    return any(b in domain for b in VISIT_BLACKLIST)
 
 
 @staticmethod
@@ -76,10 +95,14 @@ class Visit(BaseTool):
         os.makedirs(log_folder, exist_ok=True)
 
         if isinstance(url, str):
-            response = await self.readpage_jina(url, goal)
+            response = await self.readpage_ydc(url, goal)
         else:
             response = []
             assert isinstance(url, List)
+
+            # Filter URLs not starting with any blacklisted prefix
+            url = list(filter(lambda u: not is_blacklisted(u), url))
+
             start_time = time.time()
             for u in url: 
                 if time.time() - start_time > 900:
@@ -88,7 +111,7 @@ class Visit(BaseTool):
                     cur_response += "Summary: \n" + "The webpage content could not be processed, and therefore, no information is available." + "\n\n"
                 else:
                     try:
-                        cur_response = await self.readpage_jina(u, goal)
+                        cur_response = await self.readpage_ydc(u, goal)
                     except Exception as e:
                         cur_response = f"Error fetching {u}: {str(e)}"
                 response.append(cur_response)
@@ -130,7 +153,7 @@ class Visit(BaseTool):
                 continue
 
 
-    async def jina_readpage(self, url: str) -> str:
+    async def ydc_readpage(self, url: str) -> str:
         """
         Read webpage content using Jina service.
         
@@ -143,42 +166,59 @@ class Visit(BaseTool):
         """
         max_retries = 3
         timeout = 50
+
+        YDC_API_KEY = os.getenv("YDC_API_KEY", "")
         
         for attempt in range(max_retries):
             headers = {
-                "Authorization": f"Bearer {JINA_API_KEYS}",
+                "X-API-Key": YDC_API_KEY,
+                "Content-Type": "application/json"
             }
+            payload = {
+                "urls": [url],
+                "format": "html"
+            }
+            results = None
             try:
                 client = httpx.AsyncClient()
-                response = await client.get(
-                    f"https://r.jina.ai/{url}",
+                response = await client.post(
+                    "https://api.ydc-index.io/v1/contents",
                     headers=headers,
+                    json=payload,
                     timeout=timeout
                 )
                 if response.status_code == 200:
-                    webpage_content = response.text
+                    results = response.json()
+                    if len(results) == 0:
+                        raise ValueError("ydc readpage error")
+                    webpage_content = results[0]["html"]
+                    print("WEBPAGE CONTENT")
+                    print(webpage_content[:500])
                     return webpage_content
                 else:
                     print(response.text)
-                    raise ValueError("jina readpage error")
+                    raise ValueError("ydc readpage error")
             except Exception as e:
-                time.sleep(0.5)
+                # import traceback
+                # traceback.print_exc()
+                # print(results)
+                await asyncio.sleep(0.5)
                 if attempt == max_retries - 1:
                     return "[visit] Failed to read page."
                 
         return "[visit] Failed to read page."
 
-    async def html_readpage_jina(self, url: str) -> str:
+    async def html_readpage_ydc(self, url: str) -> str:
         max_attempts = 8
         for attempt in range(max_attempts):
-            content = await self.jina_readpage(url)
-            service = "jina"     
+            content = await self.ydc_readpage(url)
+            service = "ydc_visit"     
             print(service)
             if content and not content.startswith("[visit] Failed to read page.") and content != "[visit] Empty content." and not content.startswith("[document_parser]"):
                 return content
         return "[visit] Failed to read page."
 
-    async def readpage_jina(self, url: str, goal: str) -> str:
+    async def readpage_ydc(self, url: str, goal: str) -> str:
         """
         Attempt to read webpage content by alternating between jina and aidata services.
         
@@ -193,7 +233,7 @@ class Visit(BaseTool):
         summary_page_func = self.call_server
         max_retries = int(os.getenv('VISIT_SERVER_MAX_RETRIES', 1))
 
-        content = await self.html_readpage_jina(url)
+        content = await self.html_readpage_ydc(url)
 
         if content and not content.startswith("[visit] Failed to read page.") and content != "[visit] Empty content." and not content.startswith("[document_parser]"):
             content = truncate_to_tokens(content, max_tokens=95000)
