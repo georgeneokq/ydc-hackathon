@@ -102,7 +102,7 @@ export async function summarize(content: string): Promise<Summarization> {
   console.log(instructions)
 
   const completion = await client.chat.completions.create({
-    model: 'qwen3-30b-a3b-instruct-2507',
+    model: process.env['OPENAI_MODEL'] ?? 'qwen/qwen3-30b-a3b-instruct-2507',
     messages: [
       { role: 'system', content: instructions},
       { role: 'user', content },

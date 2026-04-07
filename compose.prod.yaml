@@ -9,8 +9,6 @@ services:
     env_file:
       - tongyi-deepresearch/.env
     volumes:
-      - "./tongyi-deepresearch/inference:/app/inference"
-
       # Persist db
       - agent_db:/tmp/agent_db
     restart: on-failure:3
@@ -24,12 +22,6 @@ services:
       dockerfile: web/dev.Dockerfile
     env_file:
       - web/.env
-    volumes:
-      # Hot reload
-      - "./web/src:/app/web/src"
-      - "./web/public:/app/web/public"
-      - "./web/next.config.ts:/app/web/next.config.ts"
-      - "./web/tsconfig.json:/app/web/tsconfig.json"
     ports:
       - "3000:3000"
     restart: on-failure:3
@@ -41,9 +33,6 @@ services:
   #   build:
   #     context: .
   #     dockerfile: autotrade-cron/dev.Dockerfile
-  #   volumes:
-  #     - "./autotrade-cron/src:/app/autotrade-cron/src"
-  #     - "./autotrade-cron/tsconfig.json:/app/autotrade-cron/tsconfig.json"
   #   env_file:
   #     - autotrade-cron/.env
   

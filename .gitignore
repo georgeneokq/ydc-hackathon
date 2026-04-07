@@ -150,3 +150,6 @@ checkpoints/
 
 # Nodejs
 node_modules/
+
+# Builds
+images.tar.gz

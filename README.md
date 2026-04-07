@@ -138,6 +138,62 @@ This will start all four services:
 - Autotrade Cron (runs periodically in the background)
 - PostgreSQL Database (port 5432 on your host machine)
 
+## Deploying project to remote machine
+
+In case your remote machine can't build Docker images.
+
+On your local machine:
+
+1. Build images
+
+```bash
+docker compose build
+```
+
+2. Export images
+
+This will take some time, please be patient.
+
+```bash
+docker save -o images.tar $(docker compose config --images) && gzip -f images.tar
+```
+
+3. Send the following files to the remote machine.
+
+- images.tar.gz
+- compose.yaml
+- .env.example
+- web/.env.example
+- autotrade-cron/.env.example
+- tongyi-deepresearch/.env.example
+
+Assuming you have SSH access, you can use `scp` command: 
+
+```bash
+scp images.tar.gz compose.prod.yaml .env.example web/.env.example autotrade-cron/.env.example tongyi-deepresearch/.env.example <USERNAME>@<MACHINE_IP>:~/ydc-hackathon
+```
+
+4. On DEPLOYMENT machine, run this to load images:
+
+```bash
+gunzip -c images.tar.gz | docker load
+```
+
+5. Copy example configuration and populate afterwards:
+
+```bash
+cp .env.example .env
+cp web/.env.example web/.env
+cp autotrade-cron/.env.example autotrade/cron.env
+cp tongyi-deepresearch/.env.example tongyi-deepresearch.env
+```
+
+6. Run images
+
+```bash
+docker compose -f compose.prod.yaml up -d
+```
+
 ### View Logs
 
 To view logs from all services:
